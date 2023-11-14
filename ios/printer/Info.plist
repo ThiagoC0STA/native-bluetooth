@@ -38,6 +38,9 @@
 		<key>NSBluetoothAlwaysUsageDescription</key>
 		<string>Este aplicativo usa Bluetooth para conectar-se a dispositivos e trocar
 			informações...</string>
+		<key>NSBluetoothPeripheralUsageDescription</key>
+		<string>Este aplicativo usa Bluetooth para conectar-se a dispositivos e trocar
+			informações...</string>
 		<key>NSCameraUsageDescription</key>
 		<string>Este aplicativo requer acesso à câmera para...</string>
 		<key>NSLocationAlwaysUsageDescription</key>

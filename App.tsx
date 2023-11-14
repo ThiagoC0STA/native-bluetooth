@@ -1,8 +1,7 @@
-/* eslint-disable react-native/no-inline-styles */
 import React, {useCallback, useEffect} from 'react';
-import BluetoothPrinter from './components/BluetoothPrinter/BluetoothPrinter';
 import {PERMISSION_TYPE, Permission} from './AppPermission';
 import {Alert} from 'react-native';
+import BluetoothPrinterDocument from './components/BluetoothPrinter/BluetoothPrinter';
 
 const App = () => {
   const requestPermissions = useCallback(async () => {
@@ -12,15 +11,20 @@ const App = () => {
     const bluetooth = await Permission.checkPermission(
       PERMISSION_TYPE.bluetooth,
     );
+
     if (!camera || !location || !photo || !bluetooth) {
-      Alert.alert('Permissions', 'One or more permissions were denied');
+      Alert.alert(
+        'Permissões necessárias',
+        'Todas as permissões são necessárias para o funcionamento do app.',
+      );
     }
   }, []);
 
   useEffect(() => {
     requestPermissions();
   }, [requestPermissions]);
-  return <BluetoothPrinter />;
+
+  return <BluetoothPrinterDocument />;
 };
 
 export default App;

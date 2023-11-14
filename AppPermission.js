@@ -1,4 +1,3 @@
-/* eslint-disable curly */
 import {check, request, RESULTS, PERMISSIONS} from 'react-native-permissions';
 import {Platform} from 'react-native';
 
@@ -25,8 +24,8 @@ const PLATFORM_LOCATION_PERMISSIONS = {
 const PLATFORM_BLUETOOTH_PERMISSIONS = {
   ios: [PERMISSIONS.IOS.BLUETOOTH_PERIPHERAL],
   android: [
+    PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION,
     PERMISSIONS.ANDROID.BLUETOOTH_SCAN,
-    PERMISSIONS.ANDROID.BLUETOOTH_ADVERTISE,
     PERMISSIONS.ANDROID.BLUETOOTH_CONNECT,
   ],
 };
@@ -49,24 +48,36 @@ const PERMISSION_TYPE = {
 
 class AppPermission {
   checkPermission = async type => {
-    const permissions = REQUEST_PERMISSION_TYPE[type][Platform.OS];
+    let permissions = REQUEST_PERMISSION_TYPE[type][Platform.OS];
+
     if (!permissions) {
       return true;
     }
+
+    if (!Array.isArray(permissions)) {
+      permissions = [permissions];
+    }
+
     try {
-      const result = await check(permissions);
-      if (result === RESULTS.GRANTED) return true;
-      return await this.requestPermission(permissions);
+      for (let permission of permissions) {
+        const result = await check(permission);
+        if (result !== RESULTS.GRANTED) {
+          return this.requestPermission(permission);
+        }
+      }
+      return true;
     } catch (error) {
+      console.error('Error checking permissions', error);
       return false;
     }
   };
 
-  requestPermission = async permissions => {
+  requestPermission = async permission => {
     try {
-      const result = await request(permissions);
+      const result = await request(permission);
       return result === RESULTS.GRANTED;
     } catch (error) {
+      console.error('Error requesting permissions', error);
       return false;
     }
   };

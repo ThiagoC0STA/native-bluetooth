@@ -1,132 +1,120 @@
-/* eslint-disable react-native/no-inline-styles */
-import React, {useState, useEffect, useCallback} from 'react';
+import React, {useState} from 'react';
 import {
   SafeAreaView,
   StatusBar,
   View,
   Button,
   FlatList,
-  Image,
   Alert,
+  Text,
+  StyleSheet,
 } from 'react-native';
 import {
   BluetoothEscposPrinter,
   BluetoothManager,
 } from 'react-native-bluetooth-escpos-printer';
-import {launchImageLibrary} from 'react-native-image-picker';
-import RNFS from 'react-native-fs';
-import {PERMISSION_TYPE, Permission} from '../../AppPermission';
 
-const BluetoothPrinter = () => {
+const BluetoothPrinterDocument = () => {
   const [isScanning, setIsScanning] = useState(false);
-  const [peripherals, setPeripherals] = useState([]);
-  const [selectedImage, setSelectedImage] = useState({uri: ''});
+  const [peripherals, setPeripherals] = useState<any>([]);
 
-  const startScan = useCallback(() => {
-    const enableBluetoothAndScan = async () => {
-      await BluetoothManager.enableBluetooth();
+  const startScan = async () => {
+    if (!isScanning) {
+      const isEnabled = await BluetoothManager.isBluetoothEnabled();
+      if (!isEnabled) {
+        Alert.alert('Error', 'Bluetooth is not enabled');
+        return;
+      }
+
       setIsScanning(true);
 
-      BluetoothManager.onDeviceFound = (device: any) => {
-        setPeripherals((currentPeripherals: any) => {
-          if (
-            currentPeripherals.every(
-              (peripheral: {address: any}) =>
-                peripheral.address !== device.address,
-            )
-          ) {
-            return [...currentPeripherals, device];
+      BluetoothManager.scanDevices()
+        .then((e: any) => {
+          setIsScanning(false);
+          if (e.found) {
+            setPeripherals(JSON.parse(e.found));
           }
-          return currentPeripherals;
+        })
+        .catch((error: any) => {
+          Alert.alert('Error', 'Failed to scan devices: ' + error.message);
+          setIsScanning(false);
         });
-      };
-
-      BluetoothManager.scanDevices().then(
-        () => {
-          setIsScanning(false);
-        },
-        () => {
-          Alert.alert('Error', 'Please enable Bluetooth');
-          setIsScanning(false);
-        },
-      );
-    };
-    if (!isScanning) {
-      enableBluetoothAndScan();
-    }
-    if (!isScanning) {
-      enableBluetoothAndScan();
-    }
-  }, [isScanning]);
-
-  const selectImage = useCallback(() => {
-    launchImageLibrary({mediaType: 'photo'}, response => {
-      if (response.assets && response.assets.length > 0) {
-        const source: any = {uri: response.assets[0].uri};
-        setSelectedImage(source);
-      }
-    });
-  }, []);
-
-  const printImage = async (peripheral: any) => {
-    if (selectedImage?.uri) {
-      try {
-        const imageBase64 = await RNFS.readFile(selectedImage?.uri, 'base64');
-        await BluetoothManager.connect(peripheral.address);
-        // 58mm = 384
-        // 80mm = 600
-
-        const options = {
-          width: 384,
-          left: 0,
-        };
-        await BluetoothEscposPrinter.printPic(imageBase64, options);
-
-        Alert.alert('Success', 'Image sent to printer');
-      } catch (error: any) {
-        console.error('Failed to print image:', error);
-        Alert.alert('Error', `Failed to print image: ${error.message}`);
-      }
-    } else {
-      Alert.alert('Error', 'No image selected');
     }
   };
 
+  const printDocument = async (peripheral: any, type: string) => {
+    await BluetoothManager.connect(peripheral.address);
+
+    if (type === 'boleto') {
+      const boletoText =
+        'Dados do Boleto\nLinha Digitavel: 1234.5678\nValor: R$ 100,00\n';
+
+      await BluetoothEscposPrinter.printText(boletoText, {});
+    } else if (type === 'recibo') {
+      const reciboText =
+        'Recibo de Pagamento\nValor: R$ 100,00\nRecebido de: Joao\n';
+      await BluetoothEscposPrinter.printText(reciboText, {});
+    }
+    Alert.alert('Success', 'Document sent to printer');
+  };
+
   return (
-    <SafeAreaView style={{flex: 1}}>
+    <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
-      <View style={{margin: 10}}>
-        <Button title="Select Image" onPress={selectImage} />
-        {selectedImage.uri ? (
-          <Image
-            source={{uri: selectedImage.uri}}
-            style={{
-              width: 200,
-              height: 200,
-              alignSelf: 'center',
-              marginTop: 20,
-            }}
-          />
-        ) : null}
+      <View style={styles.innerContainer}>
         <Button
           title={isScanning ? 'Scanning...' : 'Scan for Printers'}
           onPress={startScan}
         />
-        <FlatList
-          data={peripherals.filter((item: any) => item.name)}
-          keyExtractor={(item: any) => item.address}
-          renderItem={({item}) => (
-            <View style={{margin: 10}}>
-              <Button
-                title={`Print on ${item.name}`}
-                onPress={() => printImage(item)}
-              />
-            </View>
-          )}
-        />
+
+        {peripherals.length > 0 ? (
+          <FlatList
+            data={peripherals.filter((item: any) => item.name)}
+            keyExtractor={item => item.address}
+            renderItem={({item}) => (
+              <View style={styles.listItem}>
+                <Text style={styles.deviceName}>{item?.name}</Text>
+                <Button
+                  title="Print Boleto"
+                  onPress={() => printDocument(item, 'boleto')}
+                />
+                <Button
+                  title="Print Recibo"
+                  onPress={() => printDocument(item, 'recibo')}
+                />
+              </View>
+            )}
+          />
+        ) : (
+          <Text style={styles.noDevicesText}>No Devices Found</Text>
+        )}
       </View>
     </SafeAreaView>
   );
 };
 
-export default BluetoothPrinter;
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  innerContainer: {
+    margin: 10,
+  },
+  listItem: {
+    marginVertical: 10,
+    padding: 10,
+    backgroundColor: '#202020',
+    borderRadius: 5,
+  },
+  deviceName: {
+    fontWeight: 'bold',
+    marginBottom: 5,
+    color: '#FFF',
+  },
+  noDevicesText: {
+    textAlign: 'center',
+    marginTop: 20,
+  },
+});
+
+export default BluetoothPrinterDocument;
